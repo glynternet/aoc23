@@ -9,6 +9,11 @@ import (
 	"unicode"
 )
 
+// PART 1 SUBMITTED
+// 541712
+// 247017
+// 543867 after going for different method of searching around lineparts instead of around symbols - byLinePartsTotal
+
 const prodInput = `....401.............425.......323......791......697...............963............................................420........................
 ...*..................................%......#.....*....290.........................492.............656...@953.....................+830.....
 ..159...........823...33.717.....572.......806...896......-.....335....834......815.............791....*..............776...................
@@ -163,11 +168,13 @@ func TestPart1(t *testing.T) {
 .664.598..`
 	_ = testInput
 
-	testInput2 := `467..114..
+	// own test case
+	testInput2 := `
+467..114..
 ...*......
 ..35..633.
-......#...
-617*......
+......#..1
+617*.....
 .....+.58.
 ..592.....
 ......755.
@@ -231,11 +238,53 @@ func TestPart1(t *testing.T) {
 		//}
 	}
 
+	isSymbol := func(r rune) bool {
+		return !unicode.IsDigit(r) && r != '.'
+	}
+
+	searchSurroundingOnLine := func(lineSearch, start, end int) bool {
+		//fmt.Println("searching", lineSearch, start, end)
+		for i := start - 1; i < end+2; i++ {
+			if i < 0 || i >= len(lines[0]) {
+				continue
+			}
+			chars := lines[lineSearch]
+			r := rune(chars[i])
+			if isSymbol(r) {
+				return true
+			}
+		}
+		return false
+	}
+	byLinePartsTotal := int64(0)
+	for lineNum, parts := range lineParts {
+		for _, part := range parts {
+			included := false
+			if lineNum-1 >= 0 && searchSurroundingOnLine(lineNum-1, part.start, part.end) {
+				included = true
+			}
+			if lineNum+1 < len(lines) && searchSurroundingOnLine(lineNum+1, part.start, part.end) {
+				included = true
+			}
+			if part.start-1 >= 0 && isSymbol(rune(lines[lineNum][part.start-1])) {
+				included = true
+			}
+			if part.end+1 < len(lines[lineNum]) && isSymbol(rune(lines[lineNum][part.end+1])) {
+				included = true
+			}
+			if included {
+				byLinePartsTotal += part.num
+			}
+		}
+	}
+	fmt.Println("byLinePartsTotal", byLinePartsTotal)
+
 	//fmt.Println(symbols)
 
 	allParts := make(map[partNum]struct{})
 
 	parts := make(map[partNum]struct{})
+	var totalWithoutDeduplication int64
 	for _, symbol := range symbols {
 		symbolLine := symbol[0]
 		symbolCol := symbol[1]
@@ -252,6 +301,7 @@ func TestPart1(t *testing.T) {
 					if searchCol <= linePart.end && searchCol >= linePart.start {
 						//fmt.Println(symbol, linePart)
 						parts[linePart] = struct{}{}
+						totalWithoutDeduplication += linePart.num
 					}
 				}
 			}
@@ -263,5 +313,6 @@ func TestPart1(t *testing.T) {
 		total += p.num
 	}
 	fmt.Println(total)
+	fmt.Println(totalWithoutDeduplication)
 	fmt.Println(allParts)
 }
