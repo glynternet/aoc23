@@ -183,6 +183,7 @@ func TestPart1(t *testing.T) {
 	_ = testInput2
 
 	type partNum struct {
+		lineNum    int
 		start, end int
 		num        int64
 	}
@@ -203,7 +204,7 @@ func TestPart1(t *testing.T) {
 					lineParts[lineNum][len(lineParts[lineNum])-1].num = curr
 				} else {
 					num = true
-					lineParts[lineNum] = append(lineParts[lineNum], partNum{start: (i), num: int64(v)})
+					lineParts[lineNum] = append(lineParts[lineNum], partNum{lineNum: lineNum, start: (i), num: int64(v)})
 				}
 				lineParts[lineNum][len(lineParts[lineNum])-1].end = (i)
 			} else {
@@ -239,7 +240,8 @@ func TestPart1(t *testing.T) {
 	}
 
 	isSymbol := func(r rune) bool {
-		return !unicode.IsDigit(r) && r != '.'
+		return r == '*'
+		//return !unicode.IsDigit(r) && r != '.'
 	}
 
 	searchSurroundingOnLine := func(lineSearch, start, end int) bool {
@@ -257,6 +259,7 @@ func TestPart1(t *testing.T) {
 		return false
 	}
 	byLinePartsTotal := int64(0)
+	workingMethodParts := make(map[partNum]struct{})
 	for lineNum, parts := range lineParts {
 		for _, part := range parts {
 			included := false
@@ -274,6 +277,11 @@ func TestPart1(t *testing.T) {
 			}
 			if included {
 				byLinePartsTotal += part.num
+				_, present := workingMethodParts[part]
+				if present {
+					panic("already present")
+				}
+				workingMethodParts[part] = struct{}{}
 			}
 		}
 	}
@@ -283,36 +291,64 @@ func TestPart1(t *testing.T) {
 
 	allParts := make(map[partNum]struct{})
 
-	parts := make(map[partNum]struct{})
+	originalMethodParts := make(map[partNum]struct{})
 	var totalWithoutDeduplication int64
+	var totalGearRatio int64
 	for _, symbol := range symbols {
 		symbolLine := symbol[0]
 		symbolCol := symbol[1]
+		partsMatched := make(map[partNum]struct{})
 		for _, line := range []int{symbolLine - 1, symbolLine, symbolLine + 1} {
 			if line < 0 || line >= len(lines) {
 				fmt.Println("Skipping", line)
 				continue
 			}
 			for _, linePart := range lineParts[line] {
-
 				allParts[linePart] = struct{}{}
 
 				for _, searchCol := range []int{symbolCol - 1, symbolCol, symbolCol + 1} {
 					if searchCol <= linePart.end && searchCol >= linePart.start {
 						//fmt.Println(symbol, linePart)
-						parts[linePart] = struct{}{}
+						originalMethodParts[linePart] = struct{}{}
 						totalWithoutDeduplication += linePart.num
+						partsMatched[linePart] = struct{}{}
 					}
 				}
 			}
 		}
+		if len(partsMatched) == 2 {
+			total := int64(1)
+			for num := range partsMatched {
+				total *= num.num
+			}
+			totalGearRatio += total
+		}
 	}
+	fmt.Println("totalGearRatio", totalGearRatio)
 	var total int64
-	for p, _ := range parts {
-		delete(allParts, p)
+	originalMethodExcludedParts := make(map[partNum]struct{})
+	workingMethodExcludedParts := make(map[partNum]struct{})
+	for part := range allParts {
+		if _, ok := originalMethodParts[part]; !ok {
+			originalMethodExcludedParts[part] = struct{}{}
+		}
+		if _, ok := workingMethodParts[part]; !ok {
+			workingMethodExcludedParts[part] = struct{}{}
+		}
+	}
+	for p := range originalMethodParts {
 		total += p.num
 	}
-	fmt.Println(total)
-	fmt.Println(totalWithoutDeduplication)
-	fmt.Println(allParts)
+	fmt.Println("totalWithDedupe", total)
+	fmt.Println("totalWithoutDeduplication", totalWithoutDeduplication)
+	fmt.Println(originalMethodExcludedParts)
+	fmt.Println(workingMethodExcludedParts)
+	//assert.EqualValues(t, workingMethodExcludedParts, originalMethodExcludedParts)
+
+	for correctPart := range originalMethodParts {
+		_, ok := workingMethodParts[correctPart]
+		if !ok {
+			fmt.Println("Should not be found", correctPart)
+		}
+	}
 }
