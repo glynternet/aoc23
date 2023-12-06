@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/stretchr/testify/require"
-	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -239,13 +238,13 @@ humidity-to-location map:
 `
 
 var inputs = [][2]string{
-	{"testInput1", testInput1},
+	//{"testInput1", testInput1},
 	{"prodInput", prodInput},
 }
 
 func part1(t *testing.T, input string) {
 	reader := bufio.NewScanner(strings.NewReader(input))
-	var seeds []int
+	var seedRanges [][2]int
 	mappingName := ""
 	var mappingNames []string
 	allMappings := make(map[string][][3]int)
@@ -254,11 +253,15 @@ func part1(t *testing.T, input string) {
 		if line == "" {
 			continue
 		}
-		if len(seeds) == 0 {
-			for _, seed := range strings.Split(line, " ") {
-				seeds = append(seeds, must(t, strconv.Atoi, seed))
+		if len(seedRanges) == 0 {
+			nums := strings.Split(line, " ")
+			for i := 0; i < len(nums); i += 2 {
+				seedRanges = append(seedRanges, [2]int{
+					must(t, strconv.Atoi, nums[i]),
+					must(t, strconv.Atoi, nums[i+1]),
+				})
 			}
-			fmt.Println(seeds)
+			fmt.Println(seedRanges)
 			continue
 		}
 		if unicode.IsDigit(rune(line[0])) {
@@ -274,35 +277,95 @@ func part1(t *testing.T, input string) {
 	}
 	require.NoError(t, reader.Err())
 	fmt.Println(allMappings)
-	var lowestLocation = math.MaxInt
-	for _, seed := range seeds {
-		fmt.Println("new seed", seed)
-		for i, name := range mappingNames {
-			fmt.Println(name)
-			_ = i
-			//if i != 0 {
-			//	continue
-			//}
-			mappings := allMappings[name]
+	reverseMappingName := make([]string, len(mappingNames))
+	for i := 0; i < len(mappingNames); i++ {
+		reverseMappingName[len(mappingNames)-1-i] = mappingNames[i]
+	}
+	mappingNames = reverseMappingName
+
+	for i := 0; ; i++ {
+		i := i
+		og := i
+		for _, mappingName := range mappingNames {
+			//beforeMapping := i
+			mappings := allMappings[mappingName]
 			for _, mapping := range mappings {
-				sourceStart := mapping[1]
+				destStart := mapping[0]
 				rangeLen := mapping[2]
 				// bug?
 				//fmt.Println(seed >= sourceStart, seed < (sourceStart+rangeLen))
-				if (seed >= sourceStart) && (seed < (sourceStart + rangeLen)) {
-					delta := mapping[0] - sourceStart
-					seed += delta
+				if (i >= destStart) && (i < (destStart + rangeLen)) {
+					delta := mapping[0] - mapping[1]
+					i -= delta
 					break
 				}
 			}
-			fmt.Println(seed)
+			//fmt.Println("After reverse mapping", beforeMapping, i)
 		}
-		if seed < lowestLocation {
-			lowestLocation = seed
+		found := -1
+		for _, seedRange := range seedRanges {
+			if i >= seedRange[0] && i < seedRange[0]+seedRange[1] {
+				found = i
+				break
+			}
+		}
+		if found != -1 {
+			fmt.Println(og, found)
+			break
 		}
 	}
-	fmt.Println("lowestLocation", lowestLocation)
+
+	//lookups := make(map[string]map[int]int)
+	//for i, seedRange := range seedRanges {
+	//	if i != 0 {
+	//		continue
+	//	}
+	//	for i := 0; i < seedRange[1]; i++ {
+	//		seed := seedRange[0] + i
+	//		fmt.Println("new seed", seed)
+	//		for i, name := range mappingNames {
+	//			//fmt.Println(name)
+	//			_ = i
+	//			//if i != 0 {
+	//			//	continue
+	//			//}
+	//
+	//			mappingLookup, ok := lookups[name]
+	//			if ok {
+	//				//fmt.Println("Found mapping lookup", name)
+	//			} else {
+	//				mappingLookup = make(map[int]int)
+	//			}
+	//			beforeMapping := seed
+	//			cached, ok := mappingLookup[seed]
+	//			if ok {
+	//				fmt.Println("Found cached mapping")
+	//				seed = cached
+	//			} else {
+	//				mappings := allMappings[name]
+	//				for _, mapping := range mappings {
+	//					sourceStart := mapping[1]
+	//					rangeLen := mapping[2]
+	//					// bug?
+	//					//fmt.Println(seed >= sourceStart, seed < (sourceStart+rangeLen))
+	//					if (seed >= sourceStart) && (seed < (sourceStart + rangeLen)) {
+	//						delta := mapping[0] - sourceStart
+	//						seed += delta
+	//						break
+	//					}
+	//				}
+	//				mappingLookup[beforeMapping] = seed
+	//				lookups[name] = mappingLookup
+	//			}
+	//			fmt.Println("before after", beforeMapping, seed)
+	//		}
+	//		if seed < lowestLocation {
+	//			lowestLocation = seed
+	//		}
+	//	}
 }
+
+//fmt.Println("lowestLocation", lowestLocation)
 
 func must[I any, O any](t *testing.T, fn func(I) (O, error), in I) O {
 	o, err := fn(in)
