@@ -242,20 +242,27 @@ func part(t *testing.T, input string) {
 		}
 		//t.Log(nums)
 
-		reconstructed := [][]int{append(nums[len(nums)-1], 0)}
+		reconstructed := [][]int{append([]int{0}, nums[len(nums)-1]...)}
 		//t.Log(reconstructed)
 		for i := 0; len(reconstructed) < len(nums); i++ {
 			beforeReconstruction := nums[len(nums)-2-i]
-			reconstructed = append(reconstructed, append(beforeReconstruction, beforeReconstruction[len(beforeReconstruction)-1]+reconstructed[i][len(reconstructed[i])-1]))
+			reconstructed = append(reconstructed, append([]int{beforeReconstruction[0] - reconstructed[i][0]}, beforeReconstruction...))
 		}
 		//t.Log(reconstructed)
-
+		//
 		rl := reconstructed[len(reconstructed)-1]
-		total += rl[len(rl)-1]
+		total += rl[0]
 		return true
 	})
 
 	t.Log(total)
+}
+
+func reverse(str string) (result string) {
+	for _, v := range str {
+		result = string(v) + result
+	}
+	return
 }
 
 func TestPart1(t *testing.T) {
