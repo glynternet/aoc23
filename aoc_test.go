@@ -150,31 +150,54 @@ LJJJ||L-J7LJ7F|-LLJ|7L--7L-J-.|F--FJ.|7LL.|L--7-7L7|L||-7JJL-JJLLJFF7J.LL77..J.F
 LJJ..LL-JJ-L---7J-F77LL.LFJJLL-J-7JJ.L-LL7-L7.LLJL|JJF7-J-JLLJLLJ-7LJJ..LLJ-LJJ.LFL-FJJL|.FLLF-FL|LL.J.FL|-JJ.JJL--JLL--JJ.|J-L|J--J.L7..JJJ
 `
 
+const testInput0 = `......
+..S-7.
+..|.|.
+..L-J.
+......`
 const testInput = `.....
 .S-7.
 .|.|.
 .L-J.
 .....`
 
-const testInput2 = `..F7.
-.FJ|.
-SJ.L7
-|F--J
-LJ...`
+const testInput2 = `...........
+.S-------7.
+.|F-----7|.
+.||.....||.
+.||.....||.
+.|L-7.F-J|.
+.|..|.|..|.
+.L--J.L--J.
+...........`
+
+const testInput3 = `.F----7F7F7F7F-7....
+.|F--7||||||||FJ....
+.||.FJ||||||||L7....
+FJL7L7LJLJ||LJ.L-7..
+L--J.L7...LJS7F-7L7.
+....F-J..F7FJ|L7L7L7
+....L7.F7||L7|.L7L7|
+.....|FJLJ|FJ|F7|.LJ
+....FJL-7.||.||||...
+....L---J.LJ.LJLJ...`
 
 var inputs = [][2]string{
-	//{"testInput", testInput},
-	//{"testInput2", testInput2},
-	{"prodInput", prodInput},
+	{"testInput0", testInput0},
+	{"testInput", testInput},
+	{"testInput2", testInput2},
+	{"testInput3", testInput3},
+	//{"prodInput", prodInput},
 }
 
 type dir int
 
 const (
-	North dir = 1
+	North dir = 1 << 0
 	East  dir = 1 << 1
 	South dir = 1 << 2
 	West  dir = 1 << 3
+	AllD      = North | South | East | West
 )
 
 func part(t *testing.T, input string) {
@@ -198,21 +221,47 @@ func part(t *testing.T, input string) {
 	})
 	fmt.Println(startX, startY)
 
-	types := map[rune]dir{
+	types := biMapFromMap(map[rune]dir{
 		'|': North | South,
 		'-': East | West,
 		'L': North | East,
 		'J': North | West,
 		'7': South | West,
 		'F': South | East,
-	}
+	})
 
-	oppositeDirs := map[dir]dir{
+	dirsString := func(d dir) string {
+		if d&AllD == AllD {
+			return "ALL"
+		}
+		if d&AllD == 0 {
+			return "NONE"
+		}
+		var ss []string
+		for i := 0; i <= 1<<3; i++ {
+			switch d & (1 << i) {
+			case North:
+				ss = append(ss, "N")
+			case South:
+				ss = append(ss, "S")
+			case East:
+				ss = append(ss, "E")
+			case West:
+				ss = append(ss, "W")
+			default:
+				ss = append(ss, " ")
+			}
+		}
+		return strings.Join(ss, "")
+	}
+	_ = dirsString
+
+	oppositeDirs := biMapFromMap(map[dir]dir{
 		North: South,
 		South: North,
 		West:  East,
 		East:  West,
-	}
+	})
 
 	var dirDeltas biMap[dir, [2]int]
 	dirDeltas.add(North, [2]int{0, -1})
@@ -221,96 +270,172 @@ func part(t *testing.T, input string) {
 	dirDeltas.add(West, [2]int{-1, 0})
 
 	var next [2]int
-	for dir, delta := range dirDeltas.to {
+	for _, delta := range dirDeltas.to {
 		x := delta[0]
 		y := delta[1]
 		searchY := startY + y
 		searchX := startX + x
-		pipeSegment, ok := types[rune(lines[searchY][searchX])]
+		pipeSegment, ok := types.to[rune(lines[searchY][searchX])]
 		if !ok {
 			continue
 		}
 		opposite := dirDeltas.from[[2]int{-x, -y}]
-		var doesJoin bool
 		if pipeSegment&opposite > 0 {
-			doesJoin = true
+			next = [2]int{searchX, searchY}
+			break
 		}
-		fmt.Println("found", searchX, searchY, dir, opposite, doesJoin)
-		next = [2]int{searchX, searchY}
-		break
+		//fmt.Println("found", searchX, searchY, dir, opposite, doesJoin)
+	}
+	if next == [2]int{0, 0} {
+		panic("did not find next")
+	}
+
+	delta := func(from [2]int, to [2]int) [2]int {
+		return [2]int{
+			to[0] - from[0],
+			to[1] - from[1],
+		}
+	}
+
+	add := func(a, b [2]int) [2]int {
+		return [2]int{
+			a[0] + b[0],
+			a[1] + b[1],
+		}
 	}
 
 	findNextPipeSegment := func(previous, current [2]int) [2]int {
-		//var next [2]int
-		//var found bool
-		//var foundS bool
-		delta := [2]int{
-			current[0] - previous[0],
-			current[1] - previous[1],
-		}
+		delta := delta(previous, current)
 		cameTravellingIn, ok := dirDeltas.from[delta]
 		if !ok {
 			panic("nope")
 		}
-		cameTravellingFrom := oppositeDirs[cameTravellingIn]
+		cameTravellingFrom := oppositeDirs.to[cameTravellingIn]
 
 		char := lines[current[1]][current[0]]
-		currentPipeSegment := types[rune(char)]
+		currentPipeSegment := types.to[rune(char)]
 
 		nextDir := currentPipeSegment ^ cameTravellingFrom
 		nextDelta := dirDeltas.to[nextDir]
 		return [2]int{current[0] + nextDelta[0], current[1] + nextDelta[1]}
-		//
-		//for _, delta := range dirDeltas.to {
-		//	x := delta[0]
-		//	y := delta[1]
-		//	searchX := current[0] + x
-		//	searchY := current[1] + y
-		//	if searchX == previous[0] && searchY == previous[1] {
-		//		fmt.Println("Skipping previous")
-		//		continue
-		//	}
-		//	if searchX < 0 || searchX >= len(lines[0]) {
-		//		continue
-		//	}
-		//	if searchY < 0 || searchY >= len(lines) {
-		//		continue
-		//	}
-		//
-		//	char := rune(lines[searchY][searchX])
-		//	if char == 'S' {
-		//		foundS = true
-		//	}
-		//	pipeSegment, ok := types[char]
-		//	if !ok {
-		//		continue
-		//	}
-		//	opposite := dirDeltas.from[[2]int{-x, -y}]
-		//	if pipeSegment&opposite > 0 {
-		//		next = [2]int{searchX, searchY}
-		//		found = true
-		//		break
-		//	}
-		//}
-		//if !found {
-		//	if foundS {
-		//		panic("found S")
-		//	}
-		//	panic("not found")
-		//}
-		//return next
 	}
 
+	pipeLocations := make(map[[2]int]dir)
 	start := [2]int{startX, startY}
 	previous := [2]int{startX, startY}
+	first := next
 	current := next
-	t.Log(previous, current)
+	pipeLocations[previous] = types.to[rune(lines[previous[1]][previous[0]])]
+	pipeLocations[current] = types.to[rune(lines[current[1]][current[0]])]
+	//t.Log(previous, current)
 	for iterations := 2; next != start; iterations++ {
 		next = findNextPipeSegment(previous, current)
 		previous = current
 		current = next
-		t.Log(iterations, iterations/2, previous, current)
+		pipeLocations[previous] = types.to[rune(lines[previous[1]][previous[0]])]
+		pipeLocations[current] = types.to[rune(lines[current[1]][current[0]])]
+		//t.Log(iterations, iterations/2, previous, current)
 	}
+
+	// first and current should join to start
+	firstDelta := delta(start, first)
+	lastDelta := delta(start, previous)
+	startDirs := dirDeltas.from[firstDelta] | dirDeltas.from[lastDelta]
+	fmt.Println("S is", firstDelta, lastDelta, startDirs, string(types.from[startDirs]))
+
+	lines[startY] = strings.Replace(lines[startY], "S", string(types.from[startDirs]), 1)
+
+	printLines := func() {
+		for _, line := range lines {
+			fmt.Println(line)
+		}
+	}
+
+	printLines()
+
+	getChar := func(p [2]int) rune {
+		return rune(lines[p[1]][p[0]])
+	}
+	_ = getChar
+
+	previousOutsideFaces := make(map[[2]int]dir)
+	lookupOutsideFaces := func(t *testing.T, p [2]int) dir {
+		t.Helper()
+		d, ok := previousOutsideFaces[p]
+		if !ok {
+			require.FailNow(t, fmt.Sprint(p, "not known"))
+		}
+		return d
+	}
+	_ = lookupOutsideFaces
+
+	updateChar := func(p [2]int, c rune) {
+		currentLine := lines[p[1]]
+		before := currentLine[:p[0]]
+		after := currentLine[p[0]+1:]
+		lines[p[1]] = before + string(c) + after
+	}
+
+	for x := 0; x < len(lines[0]); x++ {
+		previousOutsideFaces[[2]int{x, -1}] = AllD
+	}
+	for y := 0; y < len(lines); y++ {
+		previousOutsideFaces[[2]int{-1, y}] = AllD
+	}
+
+	partOfPipeline := func(p [2]int) bool {
+		_, ok := pipeLocations[p]
+		return ok
+	}
+	for y := 0; y < len(lines); y++ {
+		//previously := "outside"
+
+		t.Log("LINE", y)
+
+		for x := 0; x < len(lines[y]); x++ {
+			p := [2]int{x, y}
+
+			var resolved bool
+			for _, dir := range []dir{North, West} {
+				adjacentPos := add(p, dirDeltas.to[dir])
+				adjacentOutsideFaces := lookupOutsideFaces(t, adjacentPos)
+				oppositeDir := oppositeDirs.to[dir]
+				adjacentSideOutside := (adjacentOutsideFaces & oppositeDir) == oppositeDir
+				//t.Log(p, "adjacent outside", dirsString(dir), dirsString(adjacentOutsideFaces), adjacentSideOutside)
+
+				//t.Log(p, dirsString(dir), "adjacent is", adjacentPos, lookupOutsideFaces(t, adjacentPos), dirsString(lookupOutsideFaces(t, adjacentPos)))
+				if !adjacentSideOutside {
+					continue
+				}
+				if !partOfPipeline(p) {
+					updateChar(p, 'O')
+					previousOutsideFaces[p] = AllD
+					resolved = true
+				} else {
+					// handle when part of pipeline
+					// should be able to determine what faces of the pipe are outside given that we know
+					// the direction of an outside and we know what shape the pipe is
+					// might need to track 2 things, outside sides, inside sides, because there are pipe sides which are neither inside nor outside
+				}
+			}
+
+			if !resolved {
+				previousOutsideFaces[p] = 0
+			}
+		}
+	}
+
+	fmt.Println()
+	printLines()
+	fmt.Println()
+}
+
+func biMapFromMap[k comparable, v comparable](m map[k]v) biMap[k, v] {
+	var out biMap[k, v]
+	for key, value := range m {
+		out.add(key, value)
+	}
+	return out
 }
 
 type biMap[k comparable, v comparable] struct {
@@ -335,10 +460,6 @@ func (m *biMap[k, v]) add(key k, value v) {
 
 	m.to[key] = value
 	m.from[value] = key
-}
-
-type pipeType struct {
-	north, east, south, west bool
 }
 
 func TestPart1(t *testing.T) {
